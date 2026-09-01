@@ -1,0 +1,8 @@
+{
+  "name": "My Kingshot",
+  "short_name": "Kingshot",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#070b15",
+  "theme_color": "#0a1020"
+}
