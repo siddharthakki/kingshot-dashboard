@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a1020">
+<title>My Kingshot</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<style>
+:root{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color-scheme:dark;--bg:#070b15;--panel:#101729;--line:#24304c;--muted:#93a0bf;--accent:#6e7cff}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#1b2546 0,#0b1121 34%,var(--bg) 70%);color:#f4f6ff;min-height:100vh}
+main{max-width:980px;margin:auto;padding:calc(20px + env(safe-area-inset-top)) 14px calc(48px + env(safe-area-inset-bottom))}
+header{display:flex;align-items:center;gap:12px;margin:4px 0 18px}.crest{width:46px;height:46px;display:grid;place-items:center;border-radius:14px;background:#182344;border:1px solid #344265;font-size:26px}
+h1{font-size:25px;line-height:1.1;margin:0}.subtitle{font-size:13px;color:var(--muted);margin-top:4px}
+.panel,.card,section{background:rgba(16,23,41,.92);border:1px solid var(--line);border-radius:16px;box-shadow:0 15px 40px #0004}.panel{padding:14px}
+.form{display:grid;grid-template-columns:1fr 170px;gap:10px}label{font-size:11px;color:var(--muted);display:block;margin:0 0 6px}
+input,select,button{width:100%;border-radius:12px;padding:13px;border:1px solid #354261;background:#090f1e;color:white;font-size:16px}button{margin-top:10px;background:var(--accent);font-weight:800;border:0;min-height:48px}button:disabled{opacity:.6}
+.status{font-size:13px;min-height:20px;margin-top:10px;color:#b7c2df}.error{color:#ff9b9b}.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-top:12px}.card{padding:12px}.k{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}.v{font-size:18px;font-weight:800;margin-top:5px;overflow-wrap:anywhere}
+section{padding:14px;margin-top:12px}.title{font-size:17px;font-weight:800;margin-bottom:10px}.tablewrap{overflow-x:auto;border-radius:11px}table{width:100%;border-collapse:collapse;min-width:550px}th,td{text-align:left;padding:10px;border-bottom:1px solid #202a43;font-size:13px}th{color:var(--muted);font-weight:600}
+pre{margin:0;background:#080d18;border-radius:10px;padding:12px;white-space:pre-wrap;word-break:break-word;font-size:11px;max-height:420px;overflow:auto}.hidden{display:none}.hint{margin-top:8px;color:#7886a8;font-size:11px}
+@media(max-width:540px){.form{grid-template-columns:1fr}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.v{font-size:16px}}
+</style>
+</head>
+<body>
+<main>
+<header><div class="crest">👑</div><div><h1>My Kingshot</h1><div class="subtitle">Player profile · heroes · gear · rankings</div></div></header>
+<div class="panel">
+  <div class="form">
+    <div><label>PLAYER ID / UID</label><input id="pid" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="Enter numeric ID"></div>
+    <div><label>ID TYPE</label><select id="type"><option value="governor_id">Governor / FID</option><option value="uid">Internal UID</option></select></div>
+  </div>
+  <button id="go">Fetch my player</button>
+  <div class="hint">Your Kingshot Stats API key stays server-side and is never sent to this browser.</div>
+  <div id="status" class="status"></div>
+</div>
+<div id="result" class="hidden">
+  <div id="cards" class="cards"></div>
+  <section id="heroesSec" class="hidden"><div class="title">Arena defence</div><div class="tablewrap"><table><thead><tr><th>Pos</th><th>Hero</th><th>Level</th><th>Stars</th><th>Power</th></tr></thead><tbody id="heroes"></tbody></table></div></section>
+  <section id="gearSec" class="hidden"><div class="title">Governor gear</div><div class="tablewrap"><table><thead><tr><th>Slot</th><th>Name</th><th>Quality</th><th>Tier</th><th>Stars</th><th>Level</th><th>Score</th></tr></thead><tbody id="gear"></tbody></table></div></section>
+  <section><div class="title">Raw data</div><pre id="raw"></pre></section>
+</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=v=>String(v??"—").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+const fmt=v=>typeof v==="number"?v.toLocaleString():esc(v);
+async function lookup(){
+  const id=$("pid").value.trim(), type=$("type").value;
+  $("go").disabled=true;$("status").className="status";$("status").textContent="Fetching player…";$("result").classList.add("hidden");
+  try{
+    const r=await fetch(`./api/player?id=${encodeURIComponent(id)}&id_type=${encodeURIComponent(type)}`,{cache:"no-store"});
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.error||d.message||`HTTP ${r.status}`);
+    render(d);$("status").textContent=d.fresh===false?`Loaded cached data${d.age_seconds!=null?` (${d.age_seconds}s old)`:""}.`:"Loaded.";
+  }catch(e){$("status").className="status error";$("status").textContent="Error: "+e.message}
+  finally{$("go").disabled=false}
+}
+$("go").addEventListener("click",lookup);$("pid").addEventListener("keydown",e=>{if(e.key==="Enter")lookup()});
+function render(d){
+  const p=d.player||{},a=p.alliance||{},r=d.ranks||{};
+  const fields=[["Nickname",p.nick_name],["Governor ID",p.governor_id??d.governor_id],["Internal UID",p.uid??d.uid],["Kingdom",p.kid],["Power",p.power],["Town Center",p.town_center_level],["VIP",p.vip],["Kills",p.kills],["Alliance",a.abbr?`[${a.abbr}] ${a.name||""}`:a.name],["Alliance rank",a.rank_label??a.rank],["Coordinates",(p.x!=null&&p.y!=null)?`${p.x}, ${p.y}`:"—"],["Online",p.online===true?"Yes":p.online===false?"No":"—"],["Power rank",r.power_rank],["Kills rank",r.kills_rank],["TC rank",r.town_center_rank],["Mystic rank",r.mystic_rank]];
+  $("cards").innerHTML=fields.map(([k,v])=>`<div class="card"><div class="k">${esc(k)}</div><div class="v">${typeof v==="number"?fmt(v):esc(v)}</div></div>`).join("");
+  const heroes=d.heroes||[];$("heroesSec").classList.toggle("hidden",!heroes.length);$("heroes").innerHTML=heroes.map(h=>`<tr><td>${esc(h.position)}</td><td>${esc(h.name)}</td><td>${esc(h.level)}</td><td>${esc(h.star)}</td><td>${fmt(h.power)}</td></tr>`).join("");
+  const gear=d.gov_gear||{},items=gear.items||[];$("gearSec").classList.toggle("hidden",!items.length&&!gear.hidden);$("gear").innerHTML=gear.hidden?`<tr><td colspan="7">${esc(gear.message||"Governor gear is hidden.")}</td></tr>`:items.map(g=>`<tr><td>${esc(g.slot)}</td><td>${esc(g.name)}</td><td>${esc(g.quality)}</td><td>${esc(g.tier)}</td><td>${esc(g.star)}</td><td>${esc(g.strength_level)}</td><td>${fmt(g.score)}</td></tr>`).join("");
+  $("raw").textContent=JSON.stringify(d,null,2);$("result").classList.remove("hidden");
+}
+</script>
+</body>
+</html>
