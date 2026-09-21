@@ -20,6 +20,14 @@ The browser never sees the Kingshot Stats API key.
 
 The same Worker serves the static frontend from `public/`, so no CORS configuration is required between the page and the proxy.
 
+## API behavior
+
+`/api/player` is hardened as a public proxy endpoint:
+
+- **Rate limiting** — 30 requests per minute per IP. When the limit is hit the Worker returns `429` with a `Retry-After` header. Limits are tracked in-memory per Worker isolate (fine for a single-player dashboard; move to KV if you ever need a fleet-wide limit).
+- **Timeout** — upstream requests to `api.kingshotstats.com` are aborted after 10 seconds and answered with `504`.
+- **Generic errors** — any failure is returned as a short, non-specific message (`504` on timeout, `502` on any other upstream failure). Raw upstream errors and stack details are never sent to the client.
+
 ## Deploy
 
 1. Create a Kingshot Stats API key at https://api.kingshotstats.com/
